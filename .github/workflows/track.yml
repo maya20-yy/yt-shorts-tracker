@@ -2,7 +2,8 @@ name: Automated YouTube Tracker
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    # Runs at 12 minutes and 42 minutes past every hour (avoids the :00 traffic jam)
+    - cron: '12,42 * * * *'
   workflow_dispatch:
 
 jobs:
