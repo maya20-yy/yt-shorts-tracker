@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import plotly.express as px
+import requests
 import streamlit as st
 from supabase import create_client
 
@@ -35,6 +36,19 @@ SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
+# --- AUTOMATIC YOUTUBE TITLE FETCHER (NO API KEY NEEDED) ---
+@st.cache_data(ttl=86400)  # Caches titles for 24 hours for blazing-fast loading
+def fetch_youtube_title(videoid):
+    try:
+        oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/shorts/{videoid}&format=json"
+        response = requests.get(oembed_url, timeout=3)
+        if response.status_code == 200:
+            return response.json().get("title", videoid)
+    except Exception:
+        pass
+    return videoid  # Fallback to ID if offline/error
+
+
 # --- DATA FETCHING ---
 @st.cache_data(ttl=60)
 def load_data():
@@ -53,6 +67,10 @@ def load_data():
         df_views["updated_at"] = pd.to_datetime(df_views["updated_at"])
         df_views["videocount"] = pd.to_numeric(df_views["videocount"])
 
+    # Automatically fetch titles for all tracked video IDs
+    if not df_tracked.empty and "videoid" in df_tracked.columns:
+        df_tracked["title"] = df_tracked["videoid"].apply(fetch_youtube_title)
+
     return df_tracked, df_views
 
 
@@ -70,10 +88,7 @@ if df_tracked.empty or df_views.empty:
     )
     st.stop()
 
-# Merge title into views dataframe for easy access if available
-if "title" not in df_tracked.columns:
-    df_tracked["title"] = df_tracked["videoid"]  # fallback if column missing
-
+# Merge title into views dataframe
 df_views = df_views.merge(
     df_tracked[["videoid", "title"]], on="videoid", how="left"
 )
@@ -82,7 +97,7 @@ df_views["title"] = df_views["title"].fillna(df_views["videoid"])
 # --- HELPER LOGIC FOR KPIS & VELOCITY ---
 latest_per_video = (
     df_views.sort_values("updated_at")
-    .groupby("videoid")
+    .groupby(["videoid", "title"])
     .last()
     .reset_index()
 )
@@ -148,8 +163,8 @@ selected_id = st.session_state.selected_video_id
 selected_row = df_tracked[df_tracked["videoid"] == selected_id]
 selected_title = (
     selected_row["title"].values[0]
-    if not selected_row.empty and pd.notna(selected_row["title"].values[0])
-    else selected_id
+    if not selected_row.empty
+    else fetch_youtube_title(selected_id)
 )
 selected_url = f"https://youtube.com/shorts/{selected_id}"
 
@@ -174,7 +189,7 @@ with st.container(border=True):
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("24h Gain", f"+{v_24h:,}")
         m2.metric("7d Gain", f"+{v_7d:,}")
-        m3.metric("15d Gain", f"+{v_7d:,}")
+        m3.metric("15d Gain", f"+{v_15d:,}")
         m4.metric("30d Gain", f"+{v_30d:,}")
 
         fig = px.line(
@@ -206,7 +221,7 @@ st.caption("Click any card below to focus its individual graph above")
 directory_cols = st.columns(3)
 for idx, row in df_tracked.iterrows():
     vid = row["videoid"]
-    v_title = row.get("title") if pd.notna(row.get("title")) else vid
+    v_title = row["title"]
     short_url = f"https://youtube.com/shorts/{vid}"
 
     vid_views_df = df_views[df_views["videoid"] == vid]
