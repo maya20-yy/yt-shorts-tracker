@@ -23,6 +23,18 @@ st.markdown(
             font-weight: 700;
             color: #7c3aed;
         }
+        
+        /* Styled link buttons */
+        a.yt-link {
+            color: #a855f7;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        a.yt-link:hover {
+            text-decoration: underline;
+            color: #c084fc;
+        }
     </style>
 """,
     unsafe_allow_html=True,
@@ -107,6 +119,7 @@ def get_velocity_metrics(df_sub):
 
 # --- TOP-LEVEL OVERALL KPIS ---
 kpi_col1, kpi_col2 = st.columns(2)
+
 with kpi_col1:
     with st.container(border=True):
         st.caption("🌐 TOTAL VIEWS OVERALL")
@@ -115,8 +128,19 @@ with kpi_col1:
 with kpi_col2:
     with st.container(border=True):
         st.caption("🏆 TOP PERFORMING REEL")
-        st.header(f"{top_performing_row['videocount']:,} views")
-        st.caption(f"Video ID: `{top_performing_row['videoid']}`")
+        top_vid_id = top_performing_row["videoid"]
+        top_url = f"https://youtube.com/shorts/{top_vid_id}"
+        top_thumb = f"https://img.youtube.com/vi/{top_vid_id}/hqdefault.jpg"
+
+        top_left, top_right = st.columns([1, 2])
+        with top_left:
+            st.image(top_thumb, use_column_width=True)
+        with top_right:
+            st.header(f"{top_performing_row['videocount']:,} views")
+            st.markdown(
+                f"🔗 [Open Short (`{top_vid_id}`)]({top_url})",
+                unsafe_allow_html=True,
+            )
 
 st.write("---")
 
@@ -125,14 +149,19 @@ if "selected_video_id" not in st.session_state:
     st.session_state.selected_video_id = df_tracked["videoid"].iloc[0]
 
 selected_id = st.session_state.selected_video_id
+selected_url = f"https://youtube.com/shorts/{selected_id}"
 
-# --- SINGLE TARGETED GRAPH & METRICS (WITH THUMBNAIL PREVIEW) ---
+# --- SINGLE TARGETED GRAPH & METRICS (WITH THUMBNAIL & DIRECT URL) ---
 df_selected = df_views[df_views["videoid"] == selected_id].sort_values(
     "updated_at"
 )
 
 with st.container(border=True):
     st.subheader(f"📊 Detailed Analytics — `{selected_id}`")
+    st.markdown(
+        f"🔗 **Direct URL:** [{selected_url}]({selected_url})",
+        unsafe_allow_html=True,
+    )
 
     # Split layout: Left for Thumbnail Preview, Right for Metrics & Graph
     col_thumb, col_chart = st.columns([1, 2.5])
@@ -183,6 +212,7 @@ st.caption("Click any card below to focus its individual graph above")
 directory_cols = st.columns(3)
 for idx, row in df_tracked.iterrows():
     vid = row["videoid"]
+    short_url = f"https://youtube.com/shorts/{vid}"
 
     vid_views_df = df_views[df_views["videoid"] == vid]
     latest_val = (
@@ -195,6 +225,7 @@ for idx, row in df_tracked.iterrows():
         with st.container(border=True):
             st.image(thumb_url, use_column_width=True)
             st.markdown(f"**ID:** `{vid}`")
+            st.markdown(f"🔗 [Watch Short]({short_url})", unsafe_allow_html=True)
             st.write(f"👁️ **{latest_val:,}** views")
             st.caption("🟢 Active (30-day window)")
 
