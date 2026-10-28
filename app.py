@@ -31,7 +31,8 @@ else:
 
     # Line Chart for View Growth Over Time
     st.subheader("📈 View Growth Timeline")
-    chart_data = df.pivot(index="updated_at", columns="videoid", values="videocount")
+    # Using pivot_table prevents errors if multiple videos share the same timestamp
+    chart_data = df.pivot_table(index="updated_at", columns="videoid", values="videocound" if "videocound" in df.columns else "videocount", aggfunc="last")
     st.line_chart(chart_data)
 
     # Raw Data Table Toggle
