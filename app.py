@@ -23,18 +23,6 @@ st.markdown(
             font-weight: 700;
             color: #7c3aed;
         }
-        
-        /* Styled link buttons */
-        a.yt-link {
-            color: #a855f7;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-        }
-        a.yt-link:hover {
-            text-decoration: underline;
-            color: #c084fc;
-        }
     </style>
 """,
     unsafe_allow_html=True,
@@ -81,6 +69,15 @@ if df_tracked.empty or df_views.empty:
         "No data available yet. Make sure videos are in `tracked_videos` and `track.py` has run!"
     )
     st.stop()
+
+# Merge title into views dataframe for easy access if available
+if "title" not in df_tracked.columns:
+    df_tracked["title"] = df_tracked["videoid"]  # fallback if column missing
+
+df_views = df_views.merge(
+    df_tracked[["videoid", "title"]], on="videoid", how="left"
+)
+df_views["title"] = df_views["title"].fillna(df_views["videoid"])
 
 # --- HELPER LOGIC FOR KPIS & VELOCITY ---
 latest_per_video = (
@@ -129,6 +126,7 @@ with kpi_col2:
     with st.container(border=True):
         st.caption("🏆 TOP PERFORMING REEL")
         top_vid_id = top_performing_row["videoid"]
+        top_title = top_performing_row["title"]
         top_url = f"https://youtube.com/shorts/{top_vid_id}"
         top_thumb = f"https://img.youtube.com/vi/{top_vid_id}/hqdefault.jpg"
 
@@ -137,10 +135,8 @@ with kpi_col2:
             st.image(top_thumb, use_column_width=True)
         with top_right:
             st.header(f"{top_performing_row['videocount']:,} views")
-            st.markdown(
-                f"🔗 [Open Short (`{top_vid_id}`)]({top_url})",
-                unsafe_allow_html=True,
-            )
+            st.markdown(f"**{top_title}**")
+            st.markdown(f"🔗 [Watch on YouTube]({top_url})")
 
 st.write("---")
 
@@ -149,30 +145,28 @@ if "selected_video_id" not in st.session_state:
     st.session_state.selected_video_id = df_tracked["videoid"].iloc[0]
 
 selected_id = st.session_state.selected_video_id
+selected_row = df_tracked[df_tracked["videoid"] == selected_id]
+selected_title = (
+    selected_row["title"].values[0]
+    if not selected_row.empty and pd.notna(selected_row["title"].values[0])
+    else selected_id
+)
 selected_url = f"https://youtube.com/shorts/{selected_id}"
 
-# --- SINGLE TARGETED GRAPH & METRICS (WITH THUMBNAIL & DIRECT URL) ---
+# --- SINGLE TARGETED GRAPH & METRICS ---
 df_selected = df_views[df_views["videoid"] == selected_id].sort_values(
     "updated_at"
 )
 
 with st.container(border=True):
-    st.subheader(f"📊 Detailed Analytics — `{selected_id}`")
-    st.markdown(
-        f"🔗 **Direct URL:** [{selected_url}]({selected_url})",
-        unsafe_allow_html=True,
-    )
+    st.subheader(f"📊 Detailed Analytics — {selected_title}")
+    st.markdown(f"🔗 **Direct URL:** [{selected_url}]({selected_url})")
 
-    # Split layout: Left for Thumbnail Preview, Right for Metrics & Graph
     col_thumb, col_chart = st.columns([1, 2.5])
 
     with col_thumb:
         thumb_url = f"https://img.youtube.com/vi/{selected_id}/hqdefault.jpg"
-        st.image(
-            thumb_url,
-            use_column_width=True,
-            caption=f"Video ID: {selected_id}",
-        )
+        st.image(thumb_url, use_column_width=True, caption=selected_title)
 
     with col_chart:
         v_24h, v_7d, v_15d, v_30d = get_velocity_metrics(df_selected)
@@ -180,7 +174,7 @@ with st.container(border=True):
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("24h Gain", f"+{v_24h:,}")
         m2.metric("7d Gain", f"+{v_7d:,}")
-        m3.metric("15d Gain", f"+{v_15d:,}")
+        m3.metric("15d Gain", f"+{v_7d:,}")
         m4.metric("30d Gain", f"+{v_30d:,}")
 
         fig = px.line(
@@ -212,6 +206,7 @@ st.caption("Click any card below to focus its individual graph above")
 directory_cols = st.columns(3)
 for idx, row in df_tracked.iterrows():
     vid = row["videoid"]
+    v_title = row.get("title") if pd.notna(row.get("title")) else vid
     short_url = f"https://youtube.com/shorts/{vid}"
 
     vid_views_df = df_views[df_views["videoid"] == vid]
@@ -224,8 +219,8 @@ for idx, row in df_tracked.iterrows():
     with col_target:
         with st.container(border=True):
             st.image(thumb_url, use_column_width=True)
-            st.markdown(f"**ID:** `{vid}`")
-            st.markdown(f"🔗 [Watch Short]({short_url})", unsafe_allow_html=True)
+            st.markdown(f"**{v_title}**")
+            st.markdown(f"🔗 [Watch Short]({short_url})")
             st.write(f"👁️ **{latest_val:,}** views")
             st.caption("🟢 Active (30-day window)")
 
