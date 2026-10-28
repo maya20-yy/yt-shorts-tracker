@@ -44,7 +44,6 @@ def main():
         
         if live_views is not None:
             print(f"-> Live YouTube Views: {live_views}")
-            
             # --- SAVES EXACTLY ONE NEW ROW PER VIDEO ID ---
             res = supabase.table("short_views").insert({
                 "videoid": video_id,
@@ -52,8 +51,7 @@ def main():
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).execute()
             
-            print("Supabase Response Data:", res.data)
-            print("Supabase Response Error:", res.error)
+            print("-> Inserted new historical row into Supabase successfully!")
         else:
             print("-> Could not fetch views.")
 
