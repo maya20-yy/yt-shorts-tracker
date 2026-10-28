@@ -38,11 +38,9 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # --- DATA FETCHING ---
 @st.cache_data(ttl=60)
 def load_data():
-    # Fetch Master Directory
     tracked_res = supabase.table("tracked_videos").select("*").execute()
     df_tracked = pd.DataFrame(tracked_res.data)
 
-    # Fetch Views History
     views_res = (
         supabase.table("short_views")
         .select("*")
@@ -128,42 +126,55 @@ if "selected_video_id" not in st.session_state:
 
 selected_id = st.session_state.selected_video_id
 
-# --- SINGLE TARGETED GRAPH & METRICS ---
+# --- SINGLE TARGETED GRAPH & METRICS (WITH THUMBNAIL PREVIEW) ---
 df_selected = df_views[df_views["videoid"] == selected_id].sort_values(
     "updated_at"
 )
 
 with st.container(border=True):
-    st.subheader(f"📊 Detailed Growth — `{selected_id}`")
+    st.subheader(f"📊 Detailed Analytics — `{selected_id}`")
 
-    v_24h, v_7d, v_15d, v_30d = get_velocity_metrics(df_selected)
+    # Split layout: Left for Thumbnail Preview, Right for Metrics & Graph
+    col_thumb, col_chart = st.columns([1, 2.5])
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("24h Gain", f"+{v_24h:,}")
-    m2.metric("7d Gain", f"+{v_7d:,}")
-    m3.metric("15d Gain", f"+{v_15d:,}")
-    m4.metric("30d Gain", f"+{v_30d:,}")
+    with col_thumb:
+        thumb_url = f"https://img.youtube.com/vi/{selected_id}/hqdefault.jpg"
+        st.image(
+            thumb_url,
+            use_column_width=True,
+            caption=f"Video ID: {selected_id}",
+        )
 
-    # Smooth Plotly line chart for the selected short
-    fig = px.line(
-        df_selected,
-        x="updated_at",
-        y="videocount",
-        markers=True,
-        labels={"updated_at": "Timestamp", "videocount": "Total Views"},
-    )
+    with col_chart:
+        v_24h, v_7d, v_15d, v_30d = get_velocity_metrics(df_selected)
 
-    fig.update_traces(
-        line_color="#7c3aed", line_width=3, marker=dict(size=6, color="#a855f7")
-    )
-    fig.update_layout(
-        template="plotly_dark",
-        height=360,
-        margin=dict(l=10, r=10, t=20, b=10),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-    )
-    st.plotly_chart(fig, use_container_width=True)
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("24h Gain", f"+{v_24h:,}")
+        m2.metric("7d Gain", f"+{v_7d:,}")
+        m3.metric("15d Gain", f"+{v_15d:,}")
+        m4.metric("30d Gain", f"+{v_30d:,}")
+
+        fig = px.line(
+            df_selected,
+            x="updated_at",
+            y="videocount",
+            markers=True,
+            labels={"updated_at": "Timestamp", "videocount": "Total Views"},
+        )
+
+        fig.update_traces(
+            line_color="#7c3aed",
+            line_width=3,
+            marker=dict(size=6, color="#a855f7"),
+        )
+        fig.update_layout(
+            template="plotly_dark",
+            height=280,
+            margin=dict(l=10, r=10, t=10, b=10),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
 # --- SHORTS DIRECTORY GRID ---
 st.subheader("📱 Tracked Shorts Directory")
@@ -177,11 +188,13 @@ for idx, row in df_tracked.iterrows():
     latest_val = (
         vid_views_df.iloc[-1]["videocount"] if not vid_views_df.empty else 0
     )
+    thumb_url = f"https://img.youtube.com/vi/{vid}/hqdefault.jpg"
 
     col_target = directory_cols[idx % 3]
     with col_target:
         with st.container(border=True):
-            st.markdown(f"### `{vid}`")
+            st.image(thumb_url, use_column_width=True)
+            st.markdown(f"**ID:** `{vid}`")
             st.write(f"👁️ **{latest_val:,}** views")
             st.caption("🟢 Active (30-day window)")
 
@@ -191,6 +204,6 @@ for idx, row in df_tracked.iterrows():
                 st.session_state.selected_video_id = vid
                 st.rerun()
 
-# --- RAW DATA EXPANDER AT BOTTOM ---
+# --- RAW DATA EXPANDER ---
 with st.expander("View Raw Database Entries"):
     st.dataframe(df_views)
