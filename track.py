@@ -1,5 +1,6 @@
 import json
 import urllib.request
+from datetime import datetime, timezone
 from supabase import create_client, Client
 
 SUPABASE_URL = "https://rdskmehttiglnhexiduy.supabase.co"
@@ -40,7 +41,10 @@ def main():
         
         if live_views is not None:
             print(f"-> Live YouTube Views: {live_views}")
-            supabase.table("short_views").update({"videocount": live_views}).eq("id", record_id).execute()
+            supabase.table("short_views").update({
+                "videocount": live_views,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", record_id).execute()
             print("-> Updated Supabase successfully!")
         else:
             print("-> Could not fetch views.")
