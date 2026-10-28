@@ -27,15 +27,16 @@ def get_youtube_views(video_id, yt_api_key):
 def main():
     print("--- Starting YouTube Shorts View Tracker ---")
     
-    response = supabase.table("short_views").select("*").execute()
-    rows = response.data
+    # 1. Fetch only the active list of video IDs from Supabase
+    response = supabase.table("tracked_videos").select("videoid").execute()
+    video_rows = response.data
     
-    if not rows:
-        print("No videos found in short_views.")
+    if not video_rows:
+        print("No videos found in tracked_videos table.")
         return
 
-    for row in rows:
-        record_id = row.get("id")
+    # 2. Loop through them cleanly (exactly 1 insert per video per run)
+    for row in video_rows:
         video_id = row.get("videoid")
         print(f"\nChecking Video ID: {video_id}")
         
@@ -44,7 +45,7 @@ def main():
         if live_views is not None:
             print(f"-> Live YouTube Views: {live_views}")
             
-            # --- SAVES A NEW ROW EVERY TIME ---
+            # --- SAVES EXACTLY ONE NEW ROW PER VIDEO ID ---
             supabase.table("short_views").insert({
                 "videoid": video_id,
                 "videocount": live_views,
