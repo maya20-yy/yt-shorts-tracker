@@ -3,9 +3,10 @@ import urllib.request
 from datetime import datetime, timezone
 from supabase import create_client, Client
 
-SUPABASE_URL = "https://rdskmehttiglnhexiduy.supabase.co"
-SUPABASE_KEY = "sb_publishable_SJzSUlutr_arJSykFISk7w_fqklQWIk"
-YOUTUBE_API_KEY = "AIzaSyALVfY4lmhw5UwlOxzXyauDnoVTCwUbPE8"
+# Securely pull credentials from environment variables / GitHub Secrets
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
